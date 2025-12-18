@@ -55,8 +55,7 @@ def main():
     app.add_handler(CallbackQueryHandler(change_qty_prompt, "^change_qty$"))
     app.add_handler(CallbackQueryHandler(remove_item, "^remove_item$"))
     app.add_handler(CallbackQueryHandler(confirm_order, "^confirm_order$"))
-    app.add_handler(CallbackQueryHandler(agency_select, pattern="^agency_"))
-
+    app.add_handler(CallbackQueryHandler(agency_select, "^agency_"))
 
 # ========== BOOKING ==========
     app.add_handler(CallbackQueryHandler(date_select, "^date_"))

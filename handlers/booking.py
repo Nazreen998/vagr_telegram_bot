@@ -1,7 +1,7 @@
 # booking.py
 from datetime import datetime, timedelta
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from excel_exporter import save_order_to_excel
+
 from config import AGENCY_LOCATION_MAP
 from google_sheets import save_order_to_sheet
 from config import SLOTS, VEHICLES, DRIVERS, AREA_GROUPS
@@ -12,8 +12,6 @@ from database import (
     get_waiting_orders,
     clear_waiting_group
 )
-from excel_writer import save_order_to_excel
-from utils.reminders import schedule_advanced_reminder
 
 # ===================== ASK AGENCY =====================
 async def ask_name(update, context):
@@ -46,7 +44,7 @@ async def agency_select(update, context):
     context.user_data["area"] = agency
     context.user_data["location"] = location
 
-    # AREA GROUP
+    # FIND AREA GROUP
     selected_group = None
     for grp, arr in AREA_GROUPS.items():
         if agency.lower() in arr:
@@ -73,56 +71,6 @@ async def agency_select(update, context):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# ===================== SAVE NAME =====================
-async def save_name(update, context):
-    if context.user_data.get("stage") != "ask_name":
-        return
-
-    name = update.message.text.strip()
-    context.user_data["name"] = name if name else "N/A"
-
-    context.user_data["stage"] = "ask_area"
-
-    await update.message.reply_text(
-        "📍 Please enter your *Area*:",
-        parse_mode="Markdown"
-    )
-
-
-# ===================== SAVE AREA =====================
-async def save_area(update, context):
-    if context.user_data.get("stage") != "ask_area":
-        return
-
-    area = update.message.text.strip().lower()
-    context.user_data["area"] = area
-
-    # FIND AREA GROUP
-    selected_group = None
-    for grp, arr in AREA_GROUPS.items():
-        if area in arr:
-            selected_group = grp
-            break
-
-    context.user_data["area_group"] = selected_group or "UNKNOWN"
-
-    context.user_data["stage"] = "booking"
-
-    # -------- SHOW DATE BUTTONS --------
-    keyboard = [
-        [InlineKeyboardButton(
-            (datetime.now().date() + timedelta(days=i)).strftime("%d %b %Y"),
-            callback_data=f"date_{i}"
-        )]
-        for i in range(7)
-    ]
-
-    await update.message.reply_text(
-        "📅 *Select delivery date:*",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
 
 # ===================== DATE SELECT =====================
 async def date_select(update, context):
@@ -144,31 +92,34 @@ async def date_select(update, context):
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
-#==========================SLOT SELECT==============================
+
+
+# ===================== SLOT SELECT =====================
 async def slot_select(update, context):
     q = update.callback_query
     await q.answer()
 
-    # 🔒 SAFETY: name & area must exist
     if "name" not in context.user_data or "area" not in context.user_data:
-        await q.edit_message_text(
-            "❗ Please enter your name and area before confirming order."
-        )
+        await q.edit_message_text("❗ Please select agency first.")
+        return
+
+    cart = context.user_data.get("cart", [])
+    if not cart:
+        await q.edit_message_text("🛒 Cart is empty")
         return
 
     slot_key = q.data.replace("slot_", "")
     slot_value = SLOTS.get(slot_key)
     context.user_data["slot"] = slot_value
 
-    cart = context.user_data.get("cart", [])
     total = sum(item["total"] for item in cart)
 
-    # DIRECT CONFIRM
+    # ================= DIRECT CONFIRM =================
     if total >= 80000:
         await assign_trip(update, context)
         return
 
-    # WAITING QUEUE
+    # ================= WAITING QUEUE =================
     queue_order(
         context.user_data["name"],
         context.user_data["area"],
@@ -196,6 +147,7 @@ async def slot_select(update, context):
 
     context.user_data.clear()
 
+
 # ===================== DIRECT TRIP ASSIGN =====================
 async def assign_trip(update, context):
     date = context.user_data["date"]
@@ -208,7 +160,7 @@ async def assign_trip(update, context):
 
     total = sum(item["total"] for item in cart)
 
-    # ✅ SAVE TO DATABASE
+    # SAVE TO DATABASE
     add_booking(
         context.user_data["name"],
         context.user_data["area"],
@@ -221,13 +173,12 @@ async def assign_trip(update, context):
         cart
     )
 
-    # ✅ ITEMS TEXT
     items_text = "\n".join(
         f"{i+1}. {item['product']} × {item['qty']} = ₹{item['total']}"
         for i, item in enumerate(cart)
     )
 
-    # ✅ SAVE TO GOOGLE SHEET (SINGLE ORDER)
+    # SAVE TO GOOGLE SHEET
     save_order_to_sheet({
         "name": context.user_data["name"],
         "area": context.user_data["area"],
@@ -243,7 +194,6 @@ async def assign_trip(update, context):
         "driver": driver
     })
 
-    # ✅ CONFIRM MESSAGE
     msg = (
         "✅ *ORDER CONFIRMED* 🎉\n\n"
         f"🏪 Agency: *{context.user_data['name']}*\n"
@@ -257,13 +207,14 @@ async def assign_trip(update, context):
         f"📅 *Date:* {date}\n"
         f"🕒 *Slot:* {slot}\n"
         f"🚐 *Vehicle:* {vehicle}\n"
-        f"👨‍✈️ *Driver:* {driver}\n"
+        f"👨‍✈️ *Driver:* {driver}"
     )
 
     await update.callback_query.edit_message_text(msg, parse_mode="Markdown")
     context.user_data.clear()
 
-# ===================== AUTO ASSIGN GROUP TRIP =====================
+
+# ===================== AUTO ASSIGN GROUP =====================
 async def auto_assign_group(update, context, group):
     data = get_waiting_orders(group)
     orders = data["orders"]
@@ -271,7 +222,6 @@ async def auto_assign_group(update, context, group):
     vehicle = VEHICLES[0]
     driver = DRIVERS.get(vehicle, "Driver")
 
-    # ✅ SAVE EACH ORDER TO GOOGLE SHEET
     for o in orders:
         save_order_to_sheet({
             "name": o["name"],
