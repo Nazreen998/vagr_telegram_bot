@@ -204,11 +204,11 @@ async def assign_trip(update, context):
 
     booked = get_booked_vehicles(date, slot)
     vehicle = next((v for v in VEHICLES if v not in booked), None)
-
     driver = DRIVERS.get(vehicle, "Driver")
+
     total = sum(item["total"] for item in cart)
 
-    # SAVE TO DATABASE
+    # ✅ SAVE TO DATABASE
     add_booking(
         context.user_data["name"],
         context.user_data["area"],
@@ -221,38 +221,37 @@ async def assign_trip(update, context):
         cart
     )
 
-    # -------- SAVE TO GOOGLE SHEET --------
+    # ✅ ITEMS TEXT
     items_text = "\n".join(
-           f"{i+1}. {item['product']} × {item['qty']} = ₹{item['total']}"
-           for i, item in enumerate(cart)
-)
+        f"{i+1}. {item['product']} × {item['qty']} = ₹{item['total']}"
+        for i, item in enumerate(cart)
+    )
 
-        # ================= GOOGLE SHEET SAVE =================
-    for o in orders: # type: ignore
-      save_order_to_sheet({
-        "name": o["name"],
-        "area": o["area"],
-        "area_group": group, # type: ignore
+    # ✅ SAVE TO GOOGLE SHEET (SINGLE ORDER)
+    save_order_to_sheet({
+        "name": context.user_data["name"],
+        "area": context.user_data["area"],
+        "area_group": context.user_data["area_group"],
         "items": [
             f"{item['product']} × {item['qty']} = ₹{item['total']}"
-            for item in o["items"]
+            for item in cart
         ],
-        "total": o["amount"],
-        "date": o["date"],
-        "slot": o["slot"],
+        "total": total,
+        "date": date,
+        "slot": slot,
         "vehicle": vehicle,
         "driver": driver
     })
 
-    # SEND CONFIRMATION MESSAGE
+    # ✅ CONFIRM MESSAGE
     msg = (
         "✅ *ORDER CONFIRMED* 🎉\n\n"
-        f"🙍 Customer: *{context.user_data['name']}*\n"
+        f"🏪 Agency: *{context.user_data['name']}*\n"
         f"📍 Area: *{context.user_data['area']}*\n"
         f"🏘 Group: *{context.user_data['area_group']}*\n"
         "----------------------\n"
         "🧺 *Items:*\n"
-        f"{items_text}" # type: ignore
+        f"{items_text}\n"
         "----------------------\n"
         f"💰 *Total:* ₹{total}\n"
         f"📅 *Date:* {date}\n"
@@ -262,16 +261,32 @@ async def assign_trip(update, context):
     )
 
     await update.callback_query.edit_message_text(msg, parse_mode="Markdown")
-
     context.user_data.clear()
-
 
 # ===================== AUTO ASSIGN GROUP TRIP =====================
 async def auto_assign_group(update, context, group):
-    orders = get_waiting_orders(group)["orders"]
+    data = get_waiting_orders(group)
+    orders = data["orders"]
 
     vehicle = VEHICLES[0]
     driver = DRIVERS.get(vehicle, "Driver")
+
+    # ✅ SAVE EACH ORDER TO GOOGLE SHEET
+    for o in orders:
+        save_order_to_sheet({
+            "name": o["name"],
+            "area": o["area"],
+            "area_group": group,
+            "items": [
+                f"{item['product']} × {item['qty']} = ₹{item['total']}"
+                for item in o["items"]
+            ],
+            "total": o["amount"],
+            "date": o["date"],
+            "slot": o["slot"],
+            "vehicle": vehicle,
+            "driver": driver
+        })
 
     clear_waiting_group(group)
 

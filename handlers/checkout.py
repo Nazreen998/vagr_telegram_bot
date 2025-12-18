@@ -112,9 +112,9 @@ async def confirm_order(update, context):
     q = update.callback_query
     await q.answer()
 
-    context.user_data["stage"] = "ask_name"
+    # 🔁 Redirect to Agency selection (BUTTON UI)
+    from handlers.booking import ask_name
 
-    await q.edit_message_text(
-        "📝 Please enter your *Name*:",
-        parse_mode="Markdown"
-    )
+    await ask_name(update, context)
+    return
+
