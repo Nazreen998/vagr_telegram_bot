@@ -182,17 +182,22 @@ async def assign_trip(update, context):
          for i, item in enumerate(cart)
 ]
 
+        # ================= GOOGLE SHEET SAVE =================
     save_order_to_sheet({
         "name": context.user_data["name"],
         "area": context.user_data["area"],
         "area_group": context.user_data["area_group"],
-        "items": items_list,
+        "items": [
+            f"{item['product']} × {item['qty']} = ₹{item['total']}"
+            for item in cart
+        ],
         "total": total,
         "date": date,
         "slot": slot,
         "vehicle": vehicle,
         "driver": driver
-        })
+    })
+
 
     # SEND CONFIRMATION MESSAGE
     msg = (
@@ -202,7 +207,7 @@ async def assign_trip(update, context):
         f"🏘 Group: *{context.user_data['area_group']}*\n"
         "----------------------\n"
         "🧺 *Items:*\n"
-        f"{items_text}"
+        f"{items_text}" # type: ignore
         "----------------------\n"
         f"💰 *Total:* ₹{total}\n"
         f"📅 *Date:* {date}\n"
