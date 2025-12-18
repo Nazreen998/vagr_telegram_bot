@@ -1,7 +1,8 @@
 # booking.py
 from datetime import datetime, timedelta
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
+from excel_exporter import save_order_to_excel
+from google_sheets import save_order_to_sheet
 from config import SLOTS, VEHICLES, DRIVERS, AREA_GROUPS
 from database import (
     add_booking,
@@ -175,24 +176,23 @@ async def assign_trip(update, context):
         cart
     )
 
-    # SAVE IN EXCEL
-    items_text = ""
-    for i, item in enumerate(cart, 1):
-        ml = item.get("ml", "")
-        items_text += f"{i}. {item['product']} {ml} × {item['qty']} = ₹{item['total']}\n"
+    # -------- SAVE TO GOOGLE SHEET --------
+    items_list = [
+         f"{i+1}. {item['product']} x {item['qty']} = ₹{item['total']}"
+         for i, item in enumerate(cart)
+]
 
-
-    save_order_to_excel(
-        context.user_data["name"],
-        context.user_data["area"],
-        context.user_data["area_group"],
-        items_text,
-        total,
-        date,
-        slot,
-        vehicle,
-        driver
-    )
+    save_order_to_sheet({
+        "name": context.user_data["name"],
+        "area": context.user_data["area"],
+        "area_group": context.user_data["area_group"],
+        "items": items_list,
+        "total": total,
+        "date": date,
+        "slot": slot,
+        "vehicle": vehicle,
+        "driver": driver
+        })
 
     # SEND CONFIRMATION MESSAGE
     msg = (
