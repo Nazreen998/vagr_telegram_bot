@@ -246,3 +246,10 @@ async def auto_assign_group(update, context, group):
         f"👨‍✈️ Driver: *{driver}*",
         parse_mode="Markdown"
     )
+# ===================== DUMMY HANDLERS (FOR COMPATIBILITY) =====================
+# main.py import error avoid panna mattum
+async def save_name(update, context):
+    return
+
+async def save_area(update, context):
+    return
