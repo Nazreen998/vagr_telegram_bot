@@ -1,47 +1,53 @@
-import sqlite3
-import json
 import os
-print("DB PATH =", os.path.abspath("slots.db"))
+import json
+import psycopg2
+import psycopg2.extras
 
 # ===================== DB CONNECTION =====================
-conn = sqlite3.connect("slots.db", check_same_thread=False)
-cur = conn.cursor()
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL not set")
+
+print("DB CONNECTING TO POSTGRES")
+
+conn = psycopg2.connect(DATABASE_URL)
+conn.autocommit = True
 
 
 # ===================== INIT DATABASE =====================
 def init_db():
-    # -------- BOOKINGS TABLE --------
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS bookings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        area TEXT,
-        area_group TEXT,
-        amount REAL,
-        date TEXT,
-        slot TEXT,
-        vehicle TEXT,
-        driver TEXT,
-        items TEXT,
-        status TEXT
-    )
-    """)
+    with conn.cursor() as cur:
+        # -------- BOOKINGS TABLE --------
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS bookings (
+            id SERIAL PRIMARY KEY,
+            name TEXT,
+            area TEXT,
+            area_group TEXT,
+            amount DOUBLE PRECISION,
+            date TEXT,
+            slot TEXT,
+            vehicle TEXT,
+            driver TEXT,
+            items JSONB,
+            status TEXT
+        )
+        """)
 
-    # -------- WAITING QUEUE TABLE --------
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS waiting_queue (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        area TEXT,
-        area_group TEXT,
-        amount REAL,
-        date TEXT,
-        slot TEXT,
-        items TEXT
-    )
-    """)
-
-    conn.commit()
+        # -------- WAITING QUEUE TABLE --------
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS waiting_queue (
+            id SERIAL PRIMARY KEY,
+            name TEXT,
+            area TEXT,
+            area_group TEXT,
+            amount DOUBLE PRECISION,
+            date TEXT,
+            slot TEXT,
+            items JSONB
+        )
+        """)
 
 
 # ===================== ADD DIRECT BOOKING =====================
@@ -57,33 +63,34 @@ def add_booking(
     items,
     status="CONFIRMED"
 ):
-    cur.execute("""
-        INSERT INTO bookings
-        (name, area, area_group, amount, date, slot, vehicle, driver, items, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        name,
-        area,
-        area_group,
-        amount,
-        date,
-        slot,
-        vehicle,
-        driver,
-        json.dumps(items),
-        status
-    ))
-    conn.commit()
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO bookings
+            (name, area, area_group, amount, date, slot, vehicle, driver, items, status)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s)
+        """, (
+            name,
+            area,
+            area_group,
+            amount,
+            date,
+            slot,
+            vehicle,
+            driver,
+            json.dumps(items),
+            status
+        ))
 
 
 # ===================== GET BOOKED VEHICLES =====================
 def get_booked_vehicles(date, slot):
-    cur.execute(
-        "SELECT vehicle FROM bookings WHERE date=? AND slot=?",
-        (date, slot)
-    )
-    rows = cur.fetchall()
-    return [r[0] for r in rows]
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT vehicle FROM bookings WHERE date=%s AND slot=%s",
+            (date, slot)
+        )
+        rows = cur.fetchall()
+        return [r[0] for r in rows]
 
 
 # ===================== ADD TO WAITING QUEUE =====================
@@ -96,44 +103,44 @@ def queue_order(
     date,
     slot
 ):
-    cur.execute("""
-        INSERT INTO waiting_queue
-        (name, area, area_group, amount, date, slot, items)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (
-        name,
-        area,
-        area_group,
-        amount,
-        date,
-        slot,
-        json.dumps(items)
-    ))
-    conn.commit()
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO waiting_queue
+            (name, area, area_group, amount, date, slot, items)
+            VALUES (%s,%s,%s,%s,%s,%s,%s::jsonb)
+        """, (
+            name,
+            area,
+            area_group,
+            amount,
+            date,
+            slot,
+            json.dumps(items)
+        ))
 
 
 # ===================== GET WAITING ORDERS =====================
 def get_waiting_orders(area_group):
-    cur.execute("""
-        SELECT name, area, amount, items, date, slot
-        FROM waiting_queue
-        WHERE area_group=?
-    """, (area_group,))
+    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        cur.execute("""
+            SELECT name, area, amount, items, date, slot
+            FROM waiting_queue
+            WHERE area_group=%s
+        """, (area_group,))
+        rows = cur.fetchall()
 
-    rows = cur.fetchall()
-
-    total = sum(r[2] for r in rows)
+    total = sum(float(r["amount"]) for r in rows)
     count = len(rows)
 
     orders = []
     for r in rows:
         orders.append({
-            "name": r[0],
-            "area": r[1],
-            "amount": r[2],
-            "items": json.loads(r[3]),
-            "date": r[4],
-            "slot": r[5]
+            "name": r["name"],
+            "area": r["area"],
+            "amount": float(r["amount"]),
+            "items": r["items"],
+            "date": r["date"],
+            "slot": r["slot"]
         })
 
     return {
@@ -145,8 +152,8 @@ def get_waiting_orders(area_group):
 
 # ===================== CLEAR WAITING GROUP =====================
 def clear_waiting_group(area_group):
-    cur.execute(
-        "DELETE FROM waiting_queue WHERE area_group=?",
-        (area_group,)
-    )
-    conn.commit()
+    with conn.cursor() as cur:
+        cur.execute(
+            "DELETE FROM waiting_queue WHERE area_group=%s",
+            (area_group,)
+        )
