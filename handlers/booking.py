@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from excel_exporter import save_order_to_excel
+from config import AGENCY_LOCATION_MAP
 from google_sheets import save_order_to_sheet
 from config import SLOTS, VEHICLES, DRIVERS, AREA_GROUPS
 from database import (
@@ -14,19 +15,63 @@ from database import (
 from excel_writer import save_order_to_excel
 from utils.reminders import schedule_advanced_reminder
 
-
-# ===================== ASK NAME =====================
+# ===================== ASK AGENCY =====================
 async def ask_name(update, context):
     q = update.callback_query
     await q.answer()
 
-    context.user_data["stage"] = "ask_name"
+    keyboard = [
+        [InlineKeyboardButton(name, callback_data=f"agency_{name}")]
+        for name in AGENCY_LOCATION_MAP.keys()
+    ]
+
+    context.user_data["stage"] = "select_agency"
 
     await q.edit_message_text(
-        "📝 Please enter your *Name*:",
-        parse_mode="Markdown"
+        "🏪 *Select your Agency:*",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
+
+# ===================== AGENCY SELECT =====================
+async def agency_select(update, context):
+    q = update.callback_query
+    await q.answer()
+
+    agency = q.data.replace("agency_", "")
+    location = AGENCY_LOCATION_MAP.get(agency, "")
+
+    context.user_data["name"] = agency
+    context.user_data["area"] = agency
+    context.user_data["location"] = location
+
+    # AREA GROUP
+    selected_group = None
+    for grp, arr in AREA_GROUPS.items():
+        if agency.lower() in arr:
+            selected_group = grp
+            break
+
+    context.user_data["area_group"] = selected_group or "UNKNOWN"
+
+    # SHOW DATE BUTTONS
+    keyboard = [
+        [InlineKeyboardButton(
+            (datetime.now().date() + timedelta(days=i)).strftime("%d %b %Y"),
+            callback_data=f"date_{i}"
+        )]
+        for i in range(7)
+    ]
+
+    await q.edit_message_text(
+        f"📍 *Location auto filled*\n\n"
+        f"🏪 Agency: *{agency}*\n"
+        f"🗺 [Open Map]({location})\n\n"
+        "📅 *Select delivery date:*",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 # ===================== SAVE NAME =====================
 async def save_name(update, context):
@@ -177,27 +222,27 @@ async def assign_trip(update, context):
     )
 
     # -------- SAVE TO GOOGLE SHEET --------
-    items_list = [
-         f"{i+1}. {item['product']} x {item['qty']} = ₹{item['total']}"
-         for i, item in enumerate(cart)
-]
+    items_text = "\n".join(
+           f"{i+1}. {item['product']} × {item['qty']} = ₹{item['total']}"
+           for i, item in enumerate(cart)
+)
 
         # ================= GOOGLE SHEET SAVE =================
-    save_order_to_sheet({
-        "name": context.user_data["name"],
-        "area": context.user_data["area"],
-        "area_group": context.user_data["area_group"],
+    for o in orders: # type: ignore
+      save_order_to_sheet({
+        "name": o["name"],
+        "area": o["area"],
+        "area_group": group, # type: ignore
         "items": [
             f"{item['product']} × {item['qty']} = ₹{item['total']}"
-            for item in cart
+            for item in o["items"]
         ],
-        "total": total,
-        "date": date,
-        "slot": slot,
+        "total": o["amount"],
+        "date": o["date"],
+        "slot": o["slot"],
         "vehicle": vehicle,
         "driver": driver
     })
-
 
     # SEND CONFIRMATION MESSAGE
     msg = (
