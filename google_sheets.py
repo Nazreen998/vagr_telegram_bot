@@ -29,7 +29,6 @@ gc = gspread.authorize(credentials)
 
 
 def save_order_to_sheet(order):
-    # ✅ OPEN SHEET INSIDE FUNCTION (SAFE)
     sheet = gc.open_by_key(SHEET_ID).sheet1
 
     order_time = datetime.now().strftime("%d-%m-%Y %I:%M %p")
