@@ -1,4 +1,4 @@
-import os
+# main.py
 from fastapi import FastAPI, Request
 from telegram.ext import (
     ApplicationBuilder,
@@ -11,7 +11,7 @@ from telegram.ext import (
 from config import TOKEN
 from database import init_db
 
-# -------- HANDLERS --------
+# HANDLERS
 from handlers.start import start
 from handlers.category import category_click
 from handlers.product import product_click
@@ -32,10 +32,9 @@ from handlers.booking import (
 )
 from handlers.text_router import text_router
 
-# -------- FASTAPI --------
 app = FastAPI()
-telegram_app = ApplicationBuilder().token(TOKEN).build()
 
+telegram_app = ApplicationBuilder().token(TOKEN).build()
 
 @app.on_event("startup")
 async def startup():
@@ -63,22 +62,20 @@ async def startup():
     telegram_app.add_handler(CallbackQueryHandler(date_select, "^date_"))
     telegram_app.add_handler(CallbackQueryHandler(slot_select, "^slot_"))
 
-    # TEXT INPUT (SAFE)
+    # TEXT
     telegram_app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, text_router)
     )
 
     await telegram_app.initialize()
     await telegram_app.start()
-    print("🚀 Bot Ready (Webhook Mode)")
-
+    print("🚀 Telegram Bot started (Webhook mode)")
 
 @app.post("/webhook")
 async def telegram_webhook(req: Request):
     update = await req.json()
     await telegram_app.update_queue.put(update)
     return {"ok": True}
-
 
 @app.get("/")
 def health():
