@@ -1,10 +1,11 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 AGENCIES = [
-    "ABHINAV AGENCY",
+    "VAGR AGENCY",
     "M.M AGENCY",
     "KUMAR AGENCY",
     "R.D AGENCY",
+    "ABHINAV AGENCY"
 ]
 
 async def start(update, context):
@@ -16,7 +17,15 @@ async def start(update, context):
         for a in AGENCIES
     ]
 
-    await update.message.reply_text(
-        "🏪 Please select agency:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    text = "🏪 Please select agency:"
+
+    if update.message:
+        await update.message.reply_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    elif update.callback_query:
+        await update.callback_query.edit_message_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
