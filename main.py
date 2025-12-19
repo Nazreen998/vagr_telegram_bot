@@ -30,14 +30,10 @@ telegram_app = ApplicationBuilder().token(TOKEN).build()
 
 @app.on_event("startup")
 async def startup():
-    # START
     telegram_app.add_handler(CommandHandler("start", start))
-
-    # CATEGORY / PRODUCT
     telegram_app.add_handler(CallbackQueryHandler(category_click, "^cat_"))
     telegram_app.add_handler(CallbackQueryHandler(product_click, "^prod_"))
 
-    # CART / CHECKOUT
     telegram_app.add_handler(CallbackQueryHandler(add_more, "^add_more$"))
     telegram_app.add_handler(CallbackQueryHandler(checkout, "^checkout$"))
     telegram_app.add_handler(CallbackQueryHandler(edit_order, "^edit_order$"))
@@ -45,18 +41,17 @@ async def startup():
     telegram_app.add_handler(CallbackQueryHandler(change_qty_prompt, "^change_qty$"))
     telegram_app.add_handler(CallbackQueryHandler(remove_item, "^remove_item$"))
 
-    # FINISH → AGENCY
     telegram_app.add_handler(CallbackQueryHandler(ask_agency, "^select_agency$"))
     telegram_app.add_handler(CallbackQueryHandler(agency_select, "^agency_"))
 
-    # TEXT
     telegram_app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, text_router)
     )
 
-    # ✅ ONLY INITIALIZE (NO start / polling)
+    # ✅ ONLY THIS
     await telegram_app.initialize()
-    print("🤖 Telegram Bot Initialized (Webhook mode)")
+    print("🤖 Telegram Bot Initialized (Webhook only)")
+
 
 @app.post("/webhook")
 async def telegram_webhook(req: Request):
