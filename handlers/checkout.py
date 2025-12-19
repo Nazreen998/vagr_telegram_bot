@@ -2,13 +2,22 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import datetime
 from db.mongo import get_orders_collection
 
-
 async def add_more(update, context):
     q = update.callback_query
     await q.answer()
 
-    from handlers.start import start
-    await start(q, context)
+    from products import get_categories
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    keyboard = [
+        [InlineKeyboardButton(cat, callback_data=f"cat_{cat}")]
+        for cat in get_categories()
+    ]
+
+    await q.edit_message_text(
+        "📦 Select category:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 
 async def checkout(update, context):

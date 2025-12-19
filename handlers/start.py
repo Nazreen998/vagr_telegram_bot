@@ -9,8 +9,9 @@ AGENCIES = [
 ]
 
 async def start(update, context):
-    context.user_data.clear()
-    context.user_data["cart"] = []
+    # ✅ reset ONLY if fresh start
+    if "cart" not in context.user_data:
+        context.user_data["cart"] = []
 
     keyboard = [
         [InlineKeyboardButton(a, callback_data=f"agency_{a}")]
