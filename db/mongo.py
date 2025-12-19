@@ -1,6 +1,6 @@
 # db/mongo.py
 import os
-from pymongo import MongoClient
+from pymongo import MongoClient # type: ignore
 
 MONGO_URI = os.getenv("MONGO_URI")
 
@@ -16,5 +16,5 @@ def get_orders_collection():
             MONGO_URI,
             serverSelectionTimeoutMS=5000
         )
-    db = _client["telegram_bot"]   # ✅ matches Atlas
+    db = _client["Telegram_bot"]   # ✅ matches Atlas
     return db["orders"]
