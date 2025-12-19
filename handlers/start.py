@@ -9,7 +9,7 @@ AGENCIES = [
 ]
 
 async def start(update, context):
-    # ✅ reset ONLY if fresh start
+    # ❗ Only reset when fresh start
     if "cart" not in context.user_data:
         context.user_data["cart"] = []
 
