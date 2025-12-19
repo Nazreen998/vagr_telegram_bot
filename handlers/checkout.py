@@ -7,7 +7,6 @@ async def add_more(update, context):
     await q.answer()
 
     from products import get_categories
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
     keyboard = [
         [InlineKeyboardButton(cat, callback_data=f"cat_{cat}")]
@@ -19,15 +18,20 @@ async def add_more(update, context):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-
 async def checkout(update, context):
+    force_edit = context.user_data.pop("_force_edit", False)
+
     if update.callback_query:
         q = update.callback_query
         await q.answer()
         edit_fn = q.edit_message_text
+
+    elif force_edit and context.user_data.get("last_summary_msg"):
+        edit_fn = context.user_data["last_summary_msg"].edit_text
+
     else:
-        # 👈 called from text message (quantity edit)
-        edit_fn = update.message.reply_text
+        msg = await update.message.reply_text("⏳ Updating order...")
+        edit_fn = msg.edit_text
 
     cart = context.user_data.get("cart", [])
 
@@ -50,11 +54,14 @@ async def checkout(update, context):
         [InlineKeyboardButton("✅ Finish Order", callback_data="finish_order")]
     ]
 
-    await edit_fn(
+    msg = await edit_fn(
         text,
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
+    # 🔥 STORE MESSAGE REF
+    context.user_data["last_summary_msg"] = msg
 
 async def edit_order(update, context):
     q = update.callback_query
@@ -75,7 +82,6 @@ async def edit_order(update, context):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
-
 
 async def edit_item(update, context):
     q = update.callback_query
@@ -98,7 +104,6 @@ async def edit_item(update, context):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-
 async def remove_item(update, context):
     q = update.callback_query
     await q.answer()
@@ -112,8 +117,6 @@ async def remove_item(update, context):
 
     await checkout(update, context)
 
-
-# 🔥 FINAL SAVE TO MONGODB
 async def finish_order(update, context):
     q = update.callback_query
     await q.answer()
@@ -134,7 +137,6 @@ async def finish_order(update, context):
         "created_at": datetime.utcnow()
     }
 
-    # ✅ SAFE MONGO INSERT
     orders_collection = get_orders_collection()
     orders_collection.insert_one(order_doc)
 

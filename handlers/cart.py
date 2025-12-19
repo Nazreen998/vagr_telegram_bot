@@ -17,14 +17,16 @@ async def quantity_input(update, context):
         idx = context.user_data["edit_idx"]
         item = context.user_data["cart"][idx]
 
+        price = item.get("price", products.get_price(item["product"]))
         item["qty"] = qty
-        item["total"] = qty * item["price"]
-        item["price"] = item.get("price", products.get_price(item["product"]))
-        item["total"] = qty * item["price"]
-
+        item["price"] = price
+        item["total"] = qty * price
 
         context.user_data.pop("awaiting_new_qty", None)
         context.user_data.pop("edit_idx", None)
+
+        # 🔥 IMPORTANT FLAG
+        context.user_data["_force_edit"] = True
 
         from handlers.checkout import checkout
         await checkout(update, context)
