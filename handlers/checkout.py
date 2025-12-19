@@ -1,6 +1,7 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from db.mongo import orders_collection
 from datetime import datetime
+from db.mongo import get_orders_collection
+
 
 async def add_more(update, context):
     q = update.callback_query
@@ -9,8 +10,11 @@ async def add_more(update, context):
     from handlers.start import start
     await start(q, context)
 
+
 async def checkout(update, context):
     q = update.callback_query
+    await q.answer()
+
     cart = context.user_data.get("cart", [])
 
     if not cart:
@@ -30,7 +34,6 @@ async def checkout(update, context):
         [InlineKeyboardButton("✏️ Edit Order", callback_data="edit_order")],
         [InlineKeyboardButton("➕ Add More", callback_data="add_more")],
         [InlineKeyboardButton("✅ Finish Order", callback_data="select_agency")]
-
     ]
 
     await q.edit_message_text(
@@ -38,6 +41,7 @@ async def checkout(update, context):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
 
 async def edit_order(update, context):
     q = update.callback_query
@@ -58,6 +62,7 @@ async def edit_order(update, context):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
 
 async def edit_item(update, context):
     q = update.callback_query
@@ -80,6 +85,7 @@ async def edit_item(update, context):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
+
 async def remove_item(update, context):
     q = update.callback_query
     await q.answer()
@@ -93,11 +99,13 @@ async def remove_item(update, context):
 
     await checkout(update, context)
 
+
+# 🔥 FINAL SAVE TO MONGODB
 async def finish_order(update, context):
     q = update.callback_query
     await q.answer()
 
-    cart = context.user_data.get("cart", [])
+    cart = context.user_data.get("cart")
     agency = context.user_data.get("agency")
 
     if not cart or not agency:
@@ -113,7 +121,8 @@ async def finish_order(update, context):
         "created_at": datetime.utcnow()
     }
 
-    # ✅ SAVE TO MONGODB
+    # ✅ SAFE MONGO INSERT
+    orders_collection = get_orders_collection()
     orders_collection.insert_one(order_doc)
 
     text = "✅ <b>Order Confirmed</b>\n\n"

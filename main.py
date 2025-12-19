@@ -24,7 +24,7 @@ from handlers.checkout import (
 )
 from handlers.agency import ask_agency, agency_select
 from handlers.text_router import text_router
-
+from handlers.checkout import finish_order
 app = FastAPI()
 telegram_app = ApplicationBuilder().token(TOKEN).build()
 
@@ -43,7 +43,7 @@ async def startup():
 
     telegram_app.add_handler(CallbackQueryHandler(ask_agency, "^select_agency$"))
     telegram_app.add_handler(CallbackQueryHandler(agency_select, "^agency_"))
-
+    telegram_app.add_handler(CallbackQueryHandler(finish_order, "^finish_order$"))
     telegram_app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, text_router)
     )
