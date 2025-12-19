@@ -1,11 +1,11 @@
 import pandas as pd
 
-products = pd.read_excel("products.xlsx")
+try:
+    products = pd.read_excel("products.xlsx")
+except Exception as e:
+    raise RuntimeError(f"Failed to load products.xlsx: {e}")
 
-# Clean column names
 products.columns = [col.strip() for col in products.columns]
-
-# 🔥 THIS LINE FIXES YOUR ISSUE
 products["Category"] = products["Category"].ffill()
 
 # ===================== GET CATEGORIES =====================
