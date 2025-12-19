@@ -1,4 +1,6 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from db.mongo import orders_collection
+from datetime import datetime
 
 async def add_more(update, context):
     q = update.callback_query
@@ -91,23 +93,36 @@ async def remove_item(update, context):
 
     await checkout(update, context)
 
-async def finish_order(update, context, agency=None):
+async def finish_order(update, context):
     q = update.callback_query
     await q.answer()
 
     cart = context.user_data.get("cart", [])
+    agency = context.user_data.get("agency")
+
+    if not cart or not agency:
+        await q.edit_message_text("❌ Order data missing")
+        return
+
     total = sum(item["total"] for item in cart)
 
-    text = (
-        "✅ <b>Order Completed</b>\n\n"
-        f"🏪 <b>Agency:</b> {agency}\n\n"
-        "🧾 <b>Items:</b>\n"
-    )
+    order_doc = {
+        "agency": agency,
+        "items": cart,
+        "total": total,
+        "created_at": datetime.utcnow()
+    }
+
+    # ✅ SAVE TO MONGODB
+    orders_collection.insert_one(order_doc)
+
+    text = "✅ <b>Order Confirmed</b>\n\n"
+    text += f"🏪 <b>Agency:</b> {agency}\n\n"
 
     for i, item in enumerate(cart, 1):
         text += f"{i}. {item['product']} × {item['qty']} = ₹{item['total']}\n"
 
-    text += f"\n💰 <b>Total: ₹{total}</b>\n\n🙏 Thank you!"
+    text += f"\n💰 <b>Total: ₹{total}</b>"
 
     context.user_data.clear()
 
