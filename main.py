@@ -14,20 +14,18 @@ from config import TOKEN
 from handlers.start import start
 from handlers.category import category_click
 from handlers.product import product_click
-from handlers.cart import quantity_input, change_qty_prompt
+from handlers.cart import change_qty_prompt
 from handlers.checkout import (
     add_more,
     checkout,
     edit_order,
     edit_item,
     remove_item,
-    finish_order,
 )
 from handlers.agency import ask_agency, agency_select
 from handlers.text_router import text_router
 
 app = FastAPI()
-
 telegram_app = ApplicationBuilder().token(TOKEN).build()
 
 @app.on_event("startup")
@@ -47,18 +45,18 @@ async def startup():
     telegram_app.add_handler(CallbackQueryHandler(change_qty_prompt, "^change_qty$"))
     telegram_app.add_handler(CallbackQueryHandler(remove_item, "^remove_item$"))
 
-    # FINISH → AGENCY SELECT
+    # FINISH → AGENCY
     telegram_app.add_handler(CallbackQueryHandler(ask_agency, "^select_agency$"))
     telegram_app.add_handler(CallbackQueryHandler(agency_select, "^agency_"))
 
-    # TEXT INPUT (QUANTITY)
+    # TEXT
     telegram_app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, text_router)
     )
 
+    # ✅ ONLY INITIALIZE (NO start / polling)
     await telegram_app.initialize()
-    await telegram_app.start()
-    print("🤖 Telegram Bot Started")
+    print("🤖 Telegram Bot Initialized (Webhook mode)")
 
 @app.post("/webhook")
 async def telegram_webhook(req: Request):
