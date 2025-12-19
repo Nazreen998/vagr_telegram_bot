@@ -19,6 +19,9 @@ async def quantity_input(update, context):
 
         item["qty"] = qty
         item["total"] = qty * item["price"]
+        item["price"] = item.get("price", products.get_price(item["product"]))
+        item["total"] = qty * item["price"]
+
 
         context.user_data.pop("awaiting_new_qty", None)
         context.user_data.pop("edit_idx", None)

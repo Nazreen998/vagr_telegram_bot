@@ -21,13 +21,18 @@ async def add_more(update, context):
 
 
 async def checkout(update, context):
-    q = update.callback_query
-    await q.answer()
+    if update.callback_query:
+        q = update.callback_query
+        await q.answer()
+        edit_fn = q.edit_message_text
+    else:
+        # 👈 called from text message (quantity edit)
+        edit_fn = update.message.reply_text
 
     cart = context.user_data.get("cart", [])
 
     if not cart:
-        await q.edit_message_text("🛒 Cart is empty")
+        await edit_fn("🛒 Cart is empty")
         return
 
     text = "🧾 <b>Order Summary</b>\n\n"
@@ -45,12 +50,11 @@ async def checkout(update, context):
         [InlineKeyboardButton("✅ Finish Order", callback_data="finish_order")]
     ]
 
-    await q.edit_message_text(
+    await edit_fn(
         text,
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
-
 
 async def edit_order(update, context):
     q = update.callback_query
