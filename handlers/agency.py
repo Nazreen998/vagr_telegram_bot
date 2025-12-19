@@ -1,35 +1,26 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ContextTypes
+from telegram import Update
+from handlers.start import start as start_categories
 
-# SIMPLE AGENCY LIST
-AGENCIES = [
-    "ABHINAV AGENCY",
-    "M.M AGENCY",
-    "KUMAR AGENCY",
-    "R.D AGENCY",
-    "CHELLAM TRADERS"
-]
-
-async def ask_agency(update, context):
-    q = update.callback_query
-    await q.answer()
-
-    keyboard = [
-        [InlineKeyboardButton(name, callback_data=f"agency_{name}")]
-        for name in AGENCIES
-    ]
-
-    await q.edit_message_text(
-        "🏪 Select Agency:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-
-async def agency_select(update, context):
+async def agency_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
 
     agency = q.data.replace("agency_", "")
     context.user_data["agency"] = agency
 
-    from handlers.checkout import finish_order
-    await finish_order(update, context, agency)
+    # 👉 Now move to category selection
+    from products import get_categories
+    from utils.keyboard import make_keyboard
+    from telegram import InlineKeyboardButton
+
+    keyboard = [
+        [InlineKeyboardButton(cat, callback_data=f"cat_{cat}")]
+        for cat in get_categories()
+    ]
+
+    await q.edit_message_text(
+        f"🏪 <b>{agency}</b> selected\n\n📦 Select category:",
+        parse_mode="HTML",
+        reply_markup=make_keyboard(keyboard)
+    )

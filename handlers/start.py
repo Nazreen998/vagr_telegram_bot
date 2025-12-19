@@ -1,23 +1,22 @@
-from telegram import InlineKeyboardButton
-from products import get_categories
-from utils.keyboard import make_keyboard
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+AGENCIES = [
+    "ABHINAV AGENCY",
+    "M.M AGENCY",
+    "KUMAR AGENCY",
+    "R.D AGENCY",
+]
 
 async def start(update, context):
-    if "cart" not in context.user_data:
-        context.user_data["cart"] = []
+    context.user_data.clear()
+    context.user_data["cart"] = []
 
     keyboard = [
-        [InlineKeyboardButton(cat, callback_data=f"cat_{cat}")]
-        for cat in get_categories()
+        [InlineKeyboardButton(a, callback_data=f"agency_{a}")]
+        for a in AGENCIES
     ]
 
-    if update.message:
-        await update.message.reply_text(
-            "🙏 Welcome to ABHINAV AGENCY\n📦 Select Category:",
-            reply_markup=make_keyboard(keyboard)
-        )
-    else:
-        await update.callback_query.edit_message_text(
-            "📦 Select Category:",
-            reply_markup=make_keyboard(keyboard)
-        )
+    await update.message.reply_text(
+        "🏪 Please select agency:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
