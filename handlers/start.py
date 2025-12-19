@@ -2,7 +2,6 @@ from telegram import InlineKeyboardButton
 from products import get_categories
 from utils.keyboard import make_keyboard
 
-
 async def start(update, context):
     if "cart" not in context.user_data:
         context.user_data["cart"] = []

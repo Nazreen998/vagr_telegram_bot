@@ -1,12 +1,11 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 import products
 
-
 async def quantity_input(update, context):
     text = update.message.text.strip()
 
-    # -------- EDIT QTY MODE --------
-    if context.user_data.get("awaiting_new_qty") is True:
+    # ===== EDIT QTY MODE =====
+    if context.user_data.get("awaiting_new_qty"):
         try:
             qty = int(text)
             if qty <= 0:
@@ -21,14 +20,14 @@ async def quantity_input(update, context):
         item["qty"] = qty
         item["total"] = qty * item["price"]
 
-        # 🔥 CLEAR EDIT FLAGS
         context.user_data.pop("awaiting_new_qty", None)
         context.user_data.pop("edit_idx", None)
 
         from handlers.checkout import checkout
         await checkout(update, context)
         return
-    # -------- NORMAL ADD MODE --------
+
+    # ===== ADD MODE =====
     if "product" not in context.user_data:
         return
 
@@ -55,21 +54,19 @@ async def quantity_input(update, context):
 
     await update.message.reply_text(
         f"✅ <b>Added to cart</b>\n\n"
-        f"{product} x {qty} = ₹{round(total, 2)}",
+        f"{product} × {qty} = ₹{total}",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("➕ Add More", callback_data="add_more")],
             [InlineKeyboardButton("🧾 Checkout", callback_data="checkout")]
         ])
     )
-    
-    
+
 async def change_qty_prompt(update, context):
     q = update.callback_query
     await q.answer()
 
     context.user_data["awaiting_new_qty"] = True
-    context.user_data["stage"] = "edit_qty"   # 🔥 IMPORTANT
     context.user_data.pop("product", None)
 
     await q.edit_message_text("✏️ Enter new quantity:")

@@ -1,6 +1,5 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardMarkup
 import products
-
 
 async def product_click(update, context):
     q = update.callback_query
@@ -8,7 +7,6 @@ async def product_click(update, context):
 
     product = q.data.replace("prod_", "")
     context.user_data["product"] = product
-    context.user_data["stage"] = "quantity"   # 🔥 IMPORTANT
 
     price = products.get_price(product)
 

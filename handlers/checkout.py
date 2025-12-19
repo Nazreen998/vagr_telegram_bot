@@ -1,27 +1,18 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from datetime import datetime, timedelta
-
 
 async def add_more(update, context):
     q = update.callback_query
     await q.answer()
 
-    context.user_data.pop("edit_idx", None)
-    context.user_data.pop("awaiting_new_qty", None)
-
     from handlers.start import start
     await start(q, context)
 
-
 async def checkout(update, context):
     q = update.callback_query
-
     cart = context.user_data.get("cart", [])
+
     if not cart:
-        if q:
-            await q.edit_message_text("🛒 Cart is empty")
-        else:
-            await update.message.reply_text("🛒 Cart is empty")
+        await q.edit_message_text("🛒 Cart is empty")
         return
 
     text = "🧾 <b>Order Summary</b>\n\n"
@@ -35,22 +26,16 @@ async def checkout(update, context):
 
     keyboard = [
         [InlineKeyboardButton("✏️ Edit Order", callback_data="edit_order")],
-        [InlineKeyboardButton("✅ Confirm Order", callback_data="confirm_order")],
-        [InlineKeyboardButton("➕ Add More", callback_data="add_more")]
+        [InlineKeyboardButton("➕ Add More", callback_data="add_more")],
+        [InlineKeyboardButton("✅ Finish Order", callback_data="select_agency")]
+
     ]
 
-    if q:
-        await q.edit_message_text(
-            text,
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-    else:
-        await update.message.reply_text(
-            text,
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+    await q.edit_message_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 async def edit_order(update, context):
     q = update.callback_query
@@ -67,11 +52,10 @@ async def edit_order(update, context):
     keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="checkout")])
 
     await q.edit_message_text(
-        "✏️ <b>Select item to edit:</b>",
+        "✏️ Select item to edit:",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
-
 
 async def edit_item(update, context):
     q = update.callback_query
@@ -89,11 +73,10 @@ async def edit_item(update, context):
     item = context.user_data["cart"][idx]
 
     await q.edit_message_text(
-        f"Editing:\n<b>{item['product']} × {item['qty']}</b>",
+        f"Editing: <b>{item['product']} × {item['qty']}</b>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
-
 
 async def remove_item(update, context):
     q = update.callback_query
@@ -108,13 +91,24 @@ async def remove_item(update, context):
 
     await checkout(update, context)
 
-async def confirm_order(update, context):
+async def finish_order(update, context, agency=None):
     q = update.callback_query
     await q.answer()
 
-    # 🔁 Redirect to Agency selection (BUTTON UI)
-    from handlers.booking import ask_name
+    cart = context.user_data.get("cart", [])
+    total = sum(item["total"] for item in cart)
 
-    await ask_name(update, context)
-    return
+    text = (
+        "✅ <b>Order Completed</b>\n\n"
+        f"🏪 <b>Agency:</b> {agency}\n\n"
+        "🧾 <b>Items:</b>\n"
+    )
 
+    for i, item in enumerate(cart, 1):
+        text += f"{i}. {item['product']} × {item['qty']} = ₹{item['total']}\n"
+
+    text += f"\n💰 <b>Total: ₹{total}</b>\n\n🙏 Thank you!"
+
+    context.user_data.clear()
+
+    await q.edit_message_text(text, parse_mode="HTML")
