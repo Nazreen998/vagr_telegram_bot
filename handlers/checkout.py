@@ -33,7 +33,7 @@ async def checkout(update, context):
     keyboard = [
         [InlineKeyboardButton("✏️ Edit Order", callback_data="edit_order")],
         [InlineKeyboardButton("➕ Add More", callback_data="add_more")],
-        [InlineKeyboardButton("✅ Finish Order", callback_data="select_agency")]
+        [InlineKeyboardButton("✅ Finish Order", callback_data="finish_order")]
     ]
 
     await q.edit_message_text(
